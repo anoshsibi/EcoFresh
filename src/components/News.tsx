@@ -305,7 +305,7 @@ export default function News() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
-      <Navbar currentPage="news" />
+      <Navbar />
 
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}

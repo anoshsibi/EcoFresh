@@ -1,4 +1,4 @@
-import React from 'react'
+import { useState, useEffect } from 'react'
 
 interface NavbarProps {
   currentPage?: string
@@ -6,7 +6,38 @@ interface NavbarProps {
   onDonate?: () => void
 }
 
-export default function Navbar({ currentPage = '', onJoinCommunity, onDonate }: NavbarProps) {
+export default function Navbar({ currentPage, onJoinCommunity, onDonate }: NavbarProps) {
+  const [activePageFromHash, setActivePageFromHash] = useState('')
+
+  // Auto-detect current page from URL hash if currentPage prop is not provided
+  useEffect(() => {
+    const getCurrentPageFromHash = () => {
+      const hash = window.location.hash
+      if (hash === '#dashboard' || hash === '#dashboard-page') {
+        return 'dashboard'
+      } else if (hash === '#analytics') {
+        return 'analytics'
+      } else if (hash === '#news') {
+        return 'news'
+      } else if (hash === '#about') {
+        return 'about'
+      } else {
+        return ''
+      }
+    }
+
+    setActivePageFromHash(getCurrentPageFromHash())
+
+    const handleHashChange = () => {
+      setActivePageFromHash(getCurrentPageFromHash())
+    }
+
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
+  }, [])
+
+  // Use provided currentPage prop if available, otherwise use auto-detected page
+  const activePage = currentPage !== undefined ? currentPage : activePageFromHash
   const navigateTo = (hash: string) => {
     if (hash === '') {
       window.location.hash = ''
@@ -50,7 +81,7 @@ export default function Navbar({ currentPage = '', onJoinCommunity, onDonate }: 
                 key={item.id}
                 onClick={() => navigateTo(item.hash)}
                 className={`text-sm font-medium transition-all duration-300 relative ${
-                  currentPage === item.id
+                  activePage === item.id
                     ? 'text-white border-b-2 border-blue-500 pb-1'
                     : 'text-gray-300 hover:text-white hover:text-[#00d4ff]'
                 }`}
@@ -60,7 +91,7 @@ export default function Navbar({ currentPage = '', onJoinCommunity, onDonate }: 
             ))}
             
             {/* Conditional Action Buttons - Only show on About page */}
-            {currentPage === 'about' && (onJoinCommunity || onDonate) && (
+            {activePage === 'about' && (onJoinCommunity || onDonate) && (
               <>
                 {onJoinCommunity && (
                   <button 
@@ -101,7 +132,7 @@ export default function Navbar({ currentPage = '', onJoinCommunity, onDonate }: 
               key={item.id}
               onClick={() => navigateTo(item.hash)}
               className={`block w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${
-                currentPage === item.id
+                activePage === item.id
                   ? 'text-white bg-blue-600'
                   : 'text-gray-300 hover:text-white hover:bg-white/10'
               }`}

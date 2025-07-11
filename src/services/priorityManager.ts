@@ -226,6 +226,65 @@ class PriorityManager {
     this.preferences = this.loadPreferences()
     this.countryCache.clear()
   }
+
+  // Legacy city-level cache management (for backward compatibility)
+  private cityCache: Map<string, CachedCityData> = new Map()
+
+  getCachedData(cityKey: string): CityAirQuality | null {
+    const cached = this.cityCache.get(cityKey)
+    if (!cached) return null
+
+    // Check if cache is still valid
+    if (Date.now() - cached.timestamp > this.CACHE_DURATION) {
+      this.cityCache.delete(cityKey)
+      return null
+    }
+
+    return cached.data
+  }
+
+  setCachedData(cityKey: string, data: CityAirQuality): void {
+    this.cityCache.set(cityKey, {
+      data,
+      timestamp: Date.now(),
+      fetchCount: 1
+    })
+  }
+
+  // Legacy city priorities (simplified version)
+  getCityPriorities(cities: Array<{name: string, country: string}>): Array<{city: string, country: string, priority: 'high' | 'medium' | 'low', score: number}> {
+    const popularCities = ['New York', 'Los Angeles', 'London', 'Paris', 'Tokyo', 'Beijing', 'Toronto', 'Sydney']
+    
+    return cities.map(city => {
+      let score = 0
+      let priority: 'high' | 'medium' | 'low' = 'low'
+
+      // Base popular cities
+      if (popularCities.includes(city.name)) {
+        score += 100
+        priority = 'high'
+      }
+
+      // Check if city's country is high priority
+      if (this.preferences.frequentCountries.includes(city.country)) {
+        score += 50
+        priority = priority === 'low' ? 'medium' : priority
+      }
+
+      return {
+        city: city.name,
+        country: city.country,
+        priority,
+        score
+      }
+    }).sort((a, b) => b.score - a.score)
+  }
+
+  // Legacy city selection tracking
+  trackCitySelection(_cityName: string, countryName: string): void {
+    // For backward compatibility, track the country
+    this.trackCountrySelection(countryName)
+  }
 }
 
 export default PriorityManager

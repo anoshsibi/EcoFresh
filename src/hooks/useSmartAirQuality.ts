@@ -14,6 +14,13 @@ interface SmartAirQualityState {
   }
 }
 
+/**
+ * @deprecated This hook is deprecated in favor of useSmartCountryAirQuality
+ * which provides better country-level smart loading and caching.
+ * 
+ * This hook is kept for backward compatibility but new code should use
+ * useSmartCountryAirQuality for consistent country-level data handling.
+ */
 export const useSmartAirQuality = () => {
   const [state, setState] = useState<SmartAirQualityState>({
     cities: [],

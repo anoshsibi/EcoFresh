@@ -47,7 +47,7 @@ export default function About() {
   const teamMembers: TeamMember[] = [
     {
       id: '1',
-      name: 'Dr. Sarah Chen',
+      name: 'Agno',
       role: 'Founder & Environmental Scientist',
       bio: 'Leading researcher in atmospheric science with 15+ years of experience in air quality monitoring.',
       imageUrl: 'https://picsum.photos/300/300?random=1',
@@ -55,7 +55,7 @@ export default function About() {
     },
     {
       id: '2',
-      name: 'Michael Rodriguez',
+      name: 'Tushar',
       role: 'CTO & Data Engineer',
       bio: 'Expert in real-time data processing and IoT sensor networks for environmental monitoring.',
       imageUrl: 'https://picsum.photos/300/300?random=2',
@@ -63,20 +63,12 @@ export default function About() {
     },
     {
       id: '3',
-      name: 'Dr. Emily Johnson',
+      name: 'Anosh',
       role: 'Health Impact Researcher',
       bio: 'Public health specialist focusing on the correlation between air quality and community health.',
       imageUrl: 'https://picsum.photos/300/300?random=3',
       expertise: ['Public Health', 'Epidemiology', 'Community Outreach']
     },
-    {
-      id: '4',
-      name: 'David Kim',
-      role: 'Community Manager',
-      bio: 'Passionate about building communities and driving environmental awareness initiatives.',
-      imageUrl: 'https://picsum.photos/300/300?random=4',
-      expertise: ['Community Building', 'Environmental Advocacy', 'Social Media']
-    }
   ]
 
   const interestOptions = [
@@ -143,7 +135,6 @@ export default function About() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-green-900">
       <Navbar 
-        currentPage="about" 
         onJoinCommunity={() => setShowJoinModal(true)}
         onDonate={() => setShowDonationModal(true)}
       />

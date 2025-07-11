@@ -1,65 +1,10 @@
-import { useState, useEffect } from 'react'
 import Navbar from './Navbar'
 import Hero from './Hero'
 import Footer from './Footer'
 import { useAirQuality } from '../hooks/useAirQuality'
 
 export default function MainPage() {
-  const [showSplash, setShowSplash] = useState(true)
-  const [splashFadeOut, setSplashFadeOut] = useState(false)
-  const [barOpacity, setBarOpacity] = useState(0)
-  const [barWidth, setBarWidth] = useState(0)
   const { cities } = useAirQuality()
-
-  // Handle splash screen transition and loading bar animation
-  useEffect(() => {
-    // Show and animate loading bar
-    const barOpacityTimer = setTimeout(() => {
-      setBarOpacity(1);
-      
-      // Start width animation after bar appears
-      const barWidthTimer = setTimeout(() => {
-        setBarWidth(100);
-      }, 500);
-      
-      return () => clearTimeout(barWidthTimer);
-    }, 2000);
-    
-    // Handle splash screen transition
-    const splashTimer = setTimeout(() => {
-      setSplashFadeOut(true)
-      setTimeout(() => {
-        setShowSplash(false)
-      }, 800)
-    }, 4500) // 4.5 seconds total splash duration
-
-    return () => {
-      clearTimeout(barOpacityTimer);
-      clearTimeout(splashTimer);
-    }
-  }, [])
-
-  // Skip splash on click
-  const handleSkipSplash = () => {
-    if (showSplash && !splashFadeOut) {
-      setSplashFadeOut(true)
-      setTimeout(() => {
-        setShowSplash(false)
-      }, 800)
-    }
-  }
-
-  // Generate particles
-  const particles = Array.from({ length: 30 }, (_, i) => (
-    <div
-      key={i}
-      className="absolute w-0.5 h-0.5 bg-cyan-400/40 rounded-full"
-      style={{
-        left: `${Math.random() * 100}%`,
-        animation: `particleFloat ${Math.random() * 4 + 6}s linear infinite ${Math.random() * 8}s`
-      }}
-    />
-  ))
 
   const globalStats = {
     totalCities: cities.length,
@@ -69,75 +14,8 @@ export default function MainPage() {
   }
 
   return (
-    <>
-      {/* Splash Screen */}
-      {showSplash && (
-        <div 
-          className={`fixed inset-0 z-50 bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#16213e] overflow-hidden cursor-pointer ${
-            splashFadeOut ? 'animate-splash-fade-out' : ''
-          }`}
-          onClick={handleSkipSplash}
-        >
-          {/* Particle Field */}
-          <div className="absolute inset-0 overflow-hidden">
-            {particles}
-          </div>
-
-          {/* Splash Container - Full height flex with proper layout */}
-          <div className="h-full flex flex-col">
-            {/* Main content area - takes up most space */}
-            <div className="flex-1 flex items-center justify-center">
-              {/* Logo Container with Ring */}
-              <div className="relative">
-                {/* Breathing Circle - positioned absolutely around the text */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] md:w-[400px] md:h-[400px] sm:w-[320px] sm:h-[320px] border-2 border-cyan-400/30 rounded-full animate-breathe"></div>
-                
-                {/* Text Content */}
-                <div className="relative z-10 text-center px-8">
-                  <div className="text-6xl md:text-6xl sm:text-4xl font-light text-white tracking-[8px] md:tracking-[8px] sm:tracking-[4px] mb-2 opacity-0 animate-logo-fade-in">
-                    Eco<span className="font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Fresh</span>
-                  </div>
-                  <div className="text-lg md:text-lg sm:text-base text-white/60 tracking-[3px] md:tracking-[3px] sm:tracking-[2px] uppercase font-normal opacity-0 animate-tagline-fade-in">
-                    Clean Air Intelligence
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Loading Elements - Bottom section with manual animation control */}
-            <div 
-              className="pb-12 w-full flex flex-col items-center justify-center"
-            >
-              {/* Simplified Loading Bar with React State */}
-              <div className="w-[300px] max-w-[90vw] h-1 bg-white/10 rounded-full mb-4 overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full" 
-                  style={{
-                    width: `${barWidth}%`,
-                    opacity: barOpacity,
-                    transition: 'width 2s ease-out, opacity 0.5s ease-out',
-                  }}>
-                </div>
-              </div>
-
-              {/* Loading Text */}
-              <div 
-                className="text-sm text-white/40 tracking-[2px] text-center"
-                style={{
-                  opacity: 0,
-                  animation: 'fadeIn 0.5s ease-out 2.5s forwards',
-                }}
-              >
-                Loading...
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Main Content */}
-      <div className={`min-h-screen bg-gradient-to-br from-[#0a0a0f] via-[#1a1a2e] to-[#16213e] ${showSplash ? 'opacity-0 pointer-events-none' : 'opacity-100 animate-main-content-fade-in'}`}>
-      <Navbar currentPage="" />
+    <div className="min-h-screen bg-gradient-to-br from-[#0a0a0f] via-[#1a1a2e] to-[#16213e]">
+      <Navbar />
       <Hero />
       
       {/* Air Quality Overview Section */}
@@ -386,6 +264,5 @@ export default function MainPage() {
       
       <Footer />
     </div>
-    </>
   )
 }
