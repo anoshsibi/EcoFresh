@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAirQuality } from '../hooks/useAirQuality'
 import Navbar from './Navbar'
 
@@ -25,6 +25,26 @@ const METRIC_OPTIONS = [
   { id: 'so2', name: 'Sulfur Dioxide', unit: 'μg/m³' },
   { id: 'co', name: 'Carbon Monoxide', unit: 'μg/m³' }
 ]
+
+// Type definitions for better type safety
+interface DataPoint {
+  time: string
+  value: number
+  aqi?: number
+  pm25?: number
+  pm10?: number
+  o3?: number
+  no2?: number
+  so2?: number
+  co?: number
+}
+
+interface CityChartData {
+  city: string
+  values: DataPoint[]
+  source?: string
+  timestamp?: string
+}
 
 // Available locations data
 const LOCATIONS = {
@@ -122,7 +142,7 @@ const LOCATIONS = {
 }
 
 export default function Analytics() {
-  const { cities, historicalData, loading } = useAirQuality()
+  // Remove unused destructured variables from useAirQuality hook
   const [selectedCountry, setSelectedCountry] = useState('')
   const [selectedState, setSelectedState] = useState('')
   const [selectedCities, setSelectedCities] = useState<string[]>([])
@@ -131,7 +151,7 @@ export default function Analytics() {
   const [timeRange, setTimeRange] = useState('24h')
   const [showComparison, setShowComparison] = useState(false)
   const [showHistoricalData, setShowHistoricalData] = useState(false)
-  const [historicalCityData, setHistoricalCityData] = useState<any[]>([])
+  const [historicalCityData, setHistoricalCityData] = useState<CityChartData[]>([])
   const [loadingHistorical, setLoadingHistorical] = useState(false)
   const [apiStatus, setApiStatus] = useState<{[key: string]: 'unknown' | 'active' | 'failed'}>({
     openweather: 'unknown',
@@ -206,7 +226,7 @@ export default function Analytics() {
     const csvData = [headers]
     
     mockChartData.forEach(cityData => {
-              cityData.values.forEach((point: any, index: number) => {
+      cityData.values.forEach((point: DataPoint, index: number) => {
         // Handle both chart data and historical data formats
         const dataSource = showHistoricalData && historicalCityData.find(h => h.city === cityData.city)?.source || 'Generated'
         
@@ -321,8 +341,8 @@ export default function Analytics() {
               <div class="stat-label">Average ${METRIC_OPTIONS.find(m => m.id === selectedMetric)?.name}</div>
               <div class="stat-value">
                 ${mockChartData.length > 0 
-                  ? Math.round(mockChartData.reduce((sum, city) => 
-                      sum + city.values.reduce((s, v) => s + v.value, 0) / city.values.length, 0
+                  ? Math.round(mockChartData.reduce((sum: number, city: CityChartData) => 
+                      sum + city.values.reduce((s: number, v: DataPoint) => s + v.value, 0) / city.values.length, 0
                     ) / mockChartData.length)
                   : 0
                 }
@@ -333,7 +353,7 @@ export default function Analytics() {
               <div class="stat-label">Highest Reading</div>
               <div class="stat-value">
                 ${mockChartData.length > 0 
-                  ? Math.max(...mockChartData.flatMap(city => city.values.map(v => v.value)))
+                  ? Math.max(...mockChartData.flatMap((city: CityChartData) => city.values.map((v: DataPoint) => v.value)))
                   : 0
                 }
               </div>
@@ -343,7 +363,7 @@ export default function Analytics() {
               <div class="stat-label">Lowest Reading</div>
               <div class="stat-value">
                 ${mockChartData.length > 0 
-                  ? Math.min(...mockChartData.flatMap(city => city.values.map(v => v.value)))
+                  ? Math.min(...mockChartData.flatMap((city: CityChartData) => city.values.map((v: DataPoint) => v.value)))
                   : 0
                 }
               </div>
@@ -519,9 +539,10 @@ export default function Analytics() {
   }
 
   // Generate consistent mock data
-  const generateMockHistoricalData = () => {
+  const generateMockHistoricalData = (): DataPoint[] => {
     return Array.from({ length: 24 }, (_, i) => ({
       time: `${String(i).padStart(2, '0')}:00`,
+      value: Math.floor(Math.random() * 150) + 10,
       aqi: Math.floor(Math.random() * 150) + 10,
       pm25: Math.floor(Math.random() * 50) + 5,
       pm10: Math.floor(Math.random() * 100) + 10,
@@ -640,10 +661,11 @@ export default function Analytics() {
   }
 
   // Generate historical data from WAQI current reading
-  const generateWAQIHistoricalData = (waqiData: any) => {
+  const generateWAQIHistoricalData = (waqiData: any): DataPoint[] => {
     const baseAQI = waqiData.aqi || 50
     return Array.from({ length: 24 }, (_, i) => ({
       time: `${String(i).padStart(2, '0')}:00`,
+      value: Math.max(0, baseAQI + Math.floor((Math.random() - 0.5) * 40)),
       aqi: Math.max(0, baseAQI + Math.floor((Math.random() - 0.5) * 40)),
       pm25: Math.max(0, (waqiData.iaqi?.pm25?.v || 25) + Math.floor((Math.random() - 0.5) * 20)),
       pm10: Math.max(0, (waqiData.iaqi?.pm10?.v || 35) + Math.floor((Math.random() - 0.5) * 25)),
@@ -654,7 +676,7 @@ export default function Analytics() {
     }))
   }
 
-  // IQAir AirVisual API (mock implementation - requires paid plan)
+  // IQAir AirVisual API (mock implementation - requires paid plan for historical data)
   const fetchFromIQAir = async (coords: { lat: number; lon: number }) => {
     if (!API_CONFIGS.iqair.enabled) throw new Error('IQAir API disabled')
     
@@ -764,8 +786,8 @@ export default function Analytics() {
   }, [selectedCities, showHistoricalData])
 
   // Mock data for demonstration (when not using historical data)
-  const generateMockData = (cities: string[], metric: string) => {
-    const data = cities.map(city => ({
+  const generateMockData = (cities: string[], metric: string): CityChartData[] => {
+    const data = cities.map((city: string) => ({
       city,
       values: Array.from({ length: 24 }, (_, i) => ({
         time: `${String(i).padStart(2, '0')}:00`,
@@ -776,20 +798,21 @@ export default function Analytics() {
   }
 
   // Get chart data based on whether historical data is enabled
-  const getChartData = () => {
+  const getChartData = (): CityChartData[] => {
     if (showHistoricalData && historicalCityData.length > 0) {
-      return historicalCityData.map(cityData => ({
+      return historicalCityData.map((cityData: CityChartData) => ({
         city: cityData.city,
-        values: cityData.values.map((val: any) => ({
+        values: cityData.values.map((val: DataPoint) => ({
           time: val.time,
-          value: val[selectedMetric] || val.aqi
+          value: (val as any)[selectedMetric] || val.aqi || val.value
         }))
       }))
     }
     return generateMockData(selectedCities, selectedMetric)
   }
 
-const mockChartData = useMemo(() => getChartData(), [selectedCities, selectedMetric, showHistoricalData, historicalCityData]);
+  const mockChartData = getChartData()
+
   const availableStates = selectedCountry 
     ? LOCATIONS.countries.find(c => c.id === selectedCountry)?.states || []
     : []
@@ -810,7 +833,7 @@ const mockChartData = useMemo(() => getChartData(), [selectedCities, selectedMet
       )
     }
 
-    const maxValue = Math.max(...mockChartData.flatMap(city => city.values.map(v => v.value)))
+    const maxValue = Math.max(...mockChartData.flatMap((city: CityChartData) => city.values.map((v: DataPoint) => v.value)))
     
     return (
       <div className="space-y-4">
@@ -855,7 +878,7 @@ const mockChartData = useMemo(() => getChartData(), [selectedCities, selectedMet
                 <text x="10" y="150" fill="rgba(255,255,255,0.7)" fontSize="14" textAnchor="middle" transform="rotate(-90 10,150)">{METRIC_OPTIONS.find(m => m.id === selectedMetric)?.unit}</text>
                 {/* Chart lines */}
                 {mockChartData.map((cityData, cityIndex) => {
-                  const points = cityData.values.map((point: { value: number; time: string }, index: number) => 
+                  const points = cityData.values.map((point: DataPoint, index: number) => 
                     `${index * (800 / (cityData.values.length - 1)) + 50},${300 - (point.value / maxValue) * 280}`
                   ).join(' ')
                   return (
@@ -868,7 +891,7 @@ const mockChartData = useMemo(() => getChartData(), [selectedCities, selectedMet
                         className="transition-all duration-300"
                       />
                       {/* Data points */}
-                      {cityData.values.map((point: any, index: number) => (
+                      {cityData.values.map((point: DataPoint, index: number) => (
                         <circle
                           key={index}
                           cx={index * (800 / (cityData.values.length - 1)) + 50}
@@ -884,7 +907,7 @@ const mockChartData = useMemo(() => getChartData(), [selectedCities, selectedMet
                   )
                 })}
                 {/* X-axis labels */}
-                {mockChartData[0]?.values.map((point: { value: number; time: string }, index: number) => (
+                {mockChartData[0]?.values.map((point: DataPoint, index: number) => (
                   index % 4 === 0 && (
                     <text
                       key={index}
@@ -920,9 +943,10 @@ const mockChartData = useMemo(() => getChartData(), [selectedCities, selectedMet
         {selectedChartType === 'bar' && (
           <div className="bg-black/40 p-6 rounded-xl border border-white/10">
             <div className="space-y-4 max-h-96 overflow-y-auto">
-              {mockChartData.map((cityData: { city: string; values: { value: number; time: string }[] }, cityIndex: number) => {
-                const avgValue: number = cityData.values.reduce((sum: number, v: { value: number }) => sum + v.value, 0) / cityData.values.length;
-                const percentage: number = Math.min((avgValue / maxValue) * 100, 100);
+              {mockChartData.map((cityData, cityIndex) => {
+                const avgValue = cityData.values.reduce((sum: number, v: DataPoint) => sum + v.value, 0) / cityData.values.length
+                const percentage = Math.min((avgValue / maxValue) * 100, 100)
+                
                 return (
                   <div key={cityData.city} className="space-y-2">
                     <div className="flex justify-between items-center">
@@ -945,7 +969,7 @@ const mockChartData = useMemo(() => getChartData(), [selectedCities, selectedMet
                       </div>
                     </div>
                   </div>
-                );
+                )
               })}
             </div>
           </div>
@@ -977,7 +1001,7 @@ const mockChartData = useMemo(() => getChartData(), [selectedCities, selectedMet
                 ))}
                 <text x="10" y="150" fill="rgba(255,255,255,0.7)" fontSize="14" textAnchor="middle" transform="rotate(-90 10,150)">{METRIC_OPTIONS.find(m => m.id === selectedMetric)?.unit}</text>
                 {mockChartData.map((cityData, cityIndex) => {
-                  const points = cityData.values.map((point, index) => 
+                  const points = cityData.values.map((point: DataPoint, index: number) => 
                     `${index * (800 / (cityData.values.length - 1)) + 50},${300 - (point.value / maxValue) * 280}`
                   ).join(' ')
                   const areaPoints = `${points} 800,300 0,300`
@@ -994,7 +1018,7 @@ const mockChartData = useMemo(() => getChartData(), [selectedCities, selectedMet
                   )
                 })}
                 {/* X-axis labels */}
-                {mockChartData[0]?.values.map((point, index) => (
+                {mockChartData[0]?.values.map((point: DataPoint, index: number) => (
                   index % 4 === 0 && (
                     <text
                       key={index}
@@ -1032,12 +1056,12 @@ const mockChartData = useMemo(() => getChartData(), [selectedCities, selectedMet
               <div className="relative w-80 h-80">
                 <svg viewBox="0 0 200 200" className="w-full h-full transform -rotate-90">
                   {mockChartData.map((cityData, index) => {
-                    const avgValue = cityData.values.reduce((sum: number, v: { value: number }) => sum + v.value, 0) / cityData.values.length
-                    const total = mockChartData.reduce((sum: number, c: { values: { value: number }[] }) => sum + c.values.reduce((s: number, v: { value: number }) => s + v.value, 0) / c.values.length, 0)
+                    const avgValue = cityData.values.reduce((sum: number, v: DataPoint) => sum + v.value, 0) / cityData.values.length
+                    const total = mockChartData.reduce((sum: number, c: CityChartData) => sum + c.values.reduce((s: number, v: DataPoint) => s + v.value, 0) / c.values.length, 0)
                     const percentage = avgValue / total
                     const angle = percentage * 360
-                    const startAngle = mockChartData.slice(0, index).reduce((sum: number, c: { values: { value: number }[] }) => {
-                      const avg = c.values.reduce((s: number, v: { value: number }) => s + v.value, 0) / c.values.length
+                    const startAngle = mockChartData.slice(0, index).reduce((sum: number, c: CityChartData) => {
+                      const avg = c.values.reduce((s: number, v: DataPoint) => s + v.value, 0) / c.values.length
                       return sum + (avg / total) * 360
                     }, 0)
                     const radius = 80
@@ -1074,7 +1098,7 @@ const mockChartData = useMemo(() => getChartData(), [selectedCities, selectedMet
             </div>
             <div className="flex flex-wrap gap-4 mt-6 justify-center">
               {mockChartData.map((cityData, index) => {
-                const avgValue = cityData.values.reduce((sum: number, v: { value: number }) => sum + v.value, 0) / cityData.values.length
+                const avgValue = cityData.values.reduce((sum: number, v: DataPoint) => sum + v.value, 0) / cityData.values.length
                 return (
                   <div key={cityData.city} className="flex items-center gap-2">
                     <div 
@@ -1096,8 +1120,8 @@ const mockChartData = useMemo(() => getChartData(), [selectedCities, selectedMet
               <div className="relative w-80 h-80">
                 <svg viewBox="0 0 200 200" className="w-full h-full transform -rotate-90">
                   {mockChartData.map((cityData, index) => {
-                    const avgValue = cityData.values.reduce((sum: number, v: { value: number }) => sum + v.value, 0) / cityData.values.length
-                    const total = mockChartData.reduce((sum: number, c: { values: { value: number }[] }) => sum + c.values.reduce((s: number, v: { value: number }) => s + v.value, 0) / c.values.length, 0)
+                    const avgValue = cityData.values.reduce((sum: number, v: DataPoint) => sum + v.value, 0) / cityData.values.length
+                    const total = mockChartData.reduce((sum: number, c: CityChartData) => sum + c.values.reduce((s: number, v: DataPoint) => s + v.value, 0) / c.values.length, 0)
                     const percentage = avgValue / total
                     const circumference = 2 * Math.PI * 70
                     const strokeDasharray = circumference
@@ -1131,7 +1155,7 @@ const mockChartData = useMemo(() => getChartData(), [selectedCities, selectedMet
             </div>
             <div className="flex flex-wrap gap-4 mt-6 justify-center">
               {mockChartData.map((cityData, index) => {
-                const avgValue = cityData.values.reduce((sum: number, v: { value: number }) => sum + v.value, 0) / cityData.values.length
+                const avgValue = cityData.values.reduce((sum: number, v: DataPoint) => sum + v.value, 0) / cityData.values.length
                 return (
                   <div key={cityData.city} className="flex items-center gap-2">
                     <div 
@@ -1166,7 +1190,7 @@ const mockChartData = useMemo(() => getChartData(), [selectedCities, selectedMet
                 ))}
                 <text x="10" y="150" fill="rgba(255,255,255,0.7)" fontSize="14" textAnchor="middle" transform="rotate(-90 10,150)">{METRIC_OPTIONS.find(m => m.id === selectedMetric)?.unit}</text>
                 {mockChartData.map((cityData, cityIndex) => (
-                  cityData.values.map((point, index) => (
+                  cityData.values.map((point: DataPoint, index: number) => (
                     <circle
                       key={`${cityData.city}-${index}`}
                       cx={index * (800 / (cityData.values.length - 1)) + 50}
@@ -1181,7 +1205,7 @@ const mockChartData = useMemo(() => getChartData(), [selectedCities, selectedMet
                   ))
                 ))}
                 {/* X-axis labels */}
-                {mockChartData[0]?.values.map((point: { value: number; time: string }, index: number) => (
+                {mockChartData[0]?.values.map((point: DataPoint, index: number) => (
                   index % 4 === 0 && (
                     <text
                       key={index}
@@ -1308,7 +1332,7 @@ const mockChartData = useMemo(() => getChartData(), [selectedCities, selectedMet
                 ))}
                 <text x="10" y="150" fill="rgba(255,255,255,0.7)" fontSize="14" textAnchor="middle" transform="rotate(-90 10,150)">{METRIC_OPTIONS.find(m => m.id === selectedMetric)?.unit}</text>
                 {mockChartData.map((cityData, cityIndex) => 
-                  cityData.values.map((point, index) => (
+                  cityData.values.map((point: DataPoint, index: number) => (
                     <rect
                       key={`${cityData.city}-${index}`}
                       x={index * (800 / cityData.values.length) + cityIndex * 3 + 50}
@@ -1324,7 +1348,7 @@ const mockChartData = useMemo(() => getChartData(), [selectedCities, selectedMet
                   ))
                 )}
                 {/* X-axis labels */}
-                {mockChartData[0]?.values.map((point, index) => (
+                {mockChartData[0]?.values.map((point: DataPoint, index: number) => (
                   index % 4 === 0 && (
                     <g key={index}>
                       <rect x={index * (800 / (mockChartData[0].values.length - 1)) - 22 + 50} y={305} width="44" height="20" fill="rgba(30,41,59,0.85)" rx="4" />
@@ -1368,7 +1392,7 @@ const mockChartData = useMemo(() => getChartData(), [selectedCities, selectedMet
                 <div key={cityData.city} className="flex items-center gap-2">
                   <div className="w-24 text-sm text-white truncate">{cityData.city}</div>
                   <div className="flex gap-1 flex-1">
-                    {cityData.values.map((point, index) => {
+                    {cityData.values.map((point: DataPoint, index: number) => {
                       const intensity = point.value / maxValue
                       return (
                         <div
@@ -1409,29 +1433,31 @@ const mockChartData = useMemo(() => getChartData(), [selectedCities, selectedMet
             <div className="text-sm text-gray-400">Average {METRIC_OPTIONS.find(m => m.id === selectedMetric)?.name}</div>
             <div className="text-2xl font-bold text-white">
               {mockChartData.length > 0 
-                ? Math.round(mockChartData.reduce((sum: number, city: { values: { value: number }[] }) => 
-                    sum + city.values.reduce((s: number, v: { value: number }) => s + v.value, 0) / city.values.length, 0
+                ? Math.round(mockChartData.reduce((sum: number, city: CityChartData) => 
+                    sum + city.values.reduce((s: number, v: DataPoint) => s + v.value, 0) / city.values.length, 0
                   ) / mockChartData.length)
                 : 0
               }
             </div>
             <div className="text-xs text-gray-500">{METRIC_OPTIONS.find(m => m.id === selectedMetric)?.unit}</div>
           </div>
+          
           <div className="bg-black/40 p-4 rounded-lg border border-white/10">
             <div className="text-sm text-gray-400">Highest Reading</div>
             <div className="text-2xl font-bold text-red-400">
               {mockChartData.length > 0 
-                ? Math.max(...mockChartData.flatMap((city: { values: { value: number }[] }) => city.values.map((v: { value: number }) => v.value)))
+                ? Math.max(...mockChartData.flatMap((city: CityChartData) => city.values.map((v: DataPoint) => v.value)))
                 : 0
               }
             </div>
             <div className="text-xs text-gray-500">{METRIC_OPTIONS.find(m => m.id === selectedMetric)?.unit}</div>
           </div>
+          
           <div className="bg-black/40 p-4 rounded-lg border border-white/10">
             <div className="text-sm text-gray-400">Lowest Reading</div>
             <div className="text-2xl font-bold text-green-400">
               {mockChartData.length > 0 
-                ? Math.min(...mockChartData.flatMap((city: { values: { value: number }[] }) => city.values.map((v: { value: number }) => v.value)))
+                ? Math.min(...mockChartData.flatMap((city: CityChartData) => city.values.map((v: DataPoint) => v.value)))
                 : 0
               }
             </div>
@@ -1444,7 +1470,7 @@ const mockChartData = useMemo(() => getChartData(), [selectedCities, selectedMet
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
-      <Navbar />
+      <Navbar currentPage="analytics" />
 
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
