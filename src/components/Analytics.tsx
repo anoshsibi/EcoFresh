@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useAirQuality } from '../hooks/useAirQuality'
 import Navbar from './Navbar'
 
@@ -654,7 +654,7 @@ export default function Analytics() {
     }))
   }
 
-  // IQAir AirVisual API (mock implementation - requires paid plan for historical data)
+  // IQAir AirVisual API (mock implementation - requires paid plan)
   const fetchFromIQAir = async (coords: { lat: number; lon: number }) => {
     if (!API_CONFIGS.iqair.enabled) throw new Error('IQAir API disabled')
     
@@ -789,8 +789,7 @@ export default function Analytics() {
     return generateMockData(selectedCities, selectedMetric)
   }
 
-  const mockChartData = getChartData()
-
+const mockChartData = useMemo(() => getChartData(), [selectedCities, selectedMetric, showHistoricalData, historicalCityData]);
   const availableStates = selectedCountry 
     ? LOCATIONS.countries.find(c => c.id === selectedCountry)?.states || []
     : []
@@ -856,7 +855,7 @@ export default function Analytics() {
                 <text x="10" y="150" fill="rgba(255,255,255,0.7)" fontSize="14" textAnchor="middle" transform="rotate(-90 10,150)">{METRIC_OPTIONS.find(m => m.id === selectedMetric)?.unit}</text>
                 {/* Chart lines */}
                 {mockChartData.map((cityData, cityIndex) => {
-                  const points = cityData.values.map((point, index) => 
+                  const points = cityData.values.map((point: { value: number; time: string }, index: number) => 
                     `${index * (800 / (cityData.values.length - 1)) + 50},${300 - (point.value / maxValue) * 280}`
                   ).join(' ')
                   return (
@@ -885,7 +884,7 @@ export default function Analytics() {
                   )
                 })}
                 {/* X-axis labels */}
-                {mockChartData[0]?.values.map((point, index) => (
+                {mockChartData[0]?.values.map((point: { value: number; time: string }, index: number) => (
                   index % 4 === 0 && (
                     <text
                       key={index}
@@ -921,10 +920,9 @@ export default function Analytics() {
         {selectedChartType === 'bar' && (
           <div className="bg-black/40 p-6 rounded-xl border border-white/10">
             <div className="space-y-4 max-h-96 overflow-y-auto">
-              {mockChartData.map((cityData, cityIndex) => {
-                const avgValue = cityData.values.reduce((sum, v) => sum + v.value, 0) / cityData.values.length
-                const percentage = Math.min((avgValue / maxValue) * 100, 100)
-                
+              {mockChartData.map((cityData: { city: string; values: { value: number; time: string }[] }, cityIndex: number) => {
+                const avgValue: number = cityData.values.reduce((sum: number, v: { value: number }) => sum + v.value, 0) / cityData.values.length;
+                const percentage: number = Math.min((avgValue / maxValue) * 100, 100);
                 return (
                   <div key={cityData.city} className="space-y-2">
                     <div className="flex justify-between items-center">
@@ -947,7 +945,7 @@ export default function Analytics() {
                       </div>
                     </div>
                   </div>
-                )
+                );
               })}
             </div>
           </div>
@@ -1034,12 +1032,12 @@ export default function Analytics() {
               <div className="relative w-80 h-80">
                 <svg viewBox="0 0 200 200" className="w-full h-full transform -rotate-90">
                   {mockChartData.map((cityData, index) => {
-                    const avgValue = cityData.values.reduce((sum, v) => sum + v.value, 0) / cityData.values.length
-                    const total = mockChartData.reduce((sum, c) => sum + c.values.reduce((s, v) => s + v.value, 0) / c.values.length, 0)
+                    const avgValue = cityData.values.reduce((sum: number, v: { value: number }) => sum + v.value, 0) / cityData.values.length
+                    const total = mockChartData.reduce((sum: number, c: { values: { value: number }[] }) => sum + c.values.reduce((s: number, v: { value: number }) => s + v.value, 0) / c.values.length, 0)
                     const percentage = avgValue / total
                     const angle = percentage * 360
-                    const startAngle = mockChartData.slice(0, index).reduce((sum, c) => {
-                      const avg = c.values.reduce((s, v) => s + v.value, 0) / c.values.length
+                    const startAngle = mockChartData.slice(0, index).reduce((sum: number, c: { values: { value: number }[] }) => {
+                      const avg = c.values.reduce((s: number, v: { value: number }) => s + v.value, 0) / c.values.length
                       return sum + (avg / total) * 360
                     }, 0)
                     const radius = 80
@@ -1076,7 +1074,7 @@ export default function Analytics() {
             </div>
             <div className="flex flex-wrap gap-4 mt-6 justify-center">
               {mockChartData.map((cityData, index) => {
-                const avgValue = cityData.values.reduce((sum, v) => sum + v.value, 0) / cityData.values.length
+                const avgValue = cityData.values.reduce((sum: number, v: { value: number }) => sum + v.value, 0) / cityData.values.length
                 return (
                   <div key={cityData.city} className="flex items-center gap-2">
                     <div 
@@ -1098,8 +1096,8 @@ export default function Analytics() {
               <div className="relative w-80 h-80">
                 <svg viewBox="0 0 200 200" className="w-full h-full transform -rotate-90">
                   {mockChartData.map((cityData, index) => {
-                    const avgValue = cityData.values.reduce((sum, v) => sum + v.value, 0) / cityData.values.length
-                    const total = mockChartData.reduce((sum, c) => sum + c.values.reduce((s, v) => s + v.value, 0) / c.values.length, 0)
+                    const avgValue = cityData.values.reduce((sum: number, v: { value: number }) => sum + v.value, 0) / cityData.values.length
+                    const total = mockChartData.reduce((sum: number, c: { values: { value: number }[] }) => sum + c.values.reduce((s: number, v: { value: number }) => s + v.value, 0) / c.values.length, 0)
                     const percentage = avgValue / total
                     const circumference = 2 * Math.PI * 70
                     const strokeDasharray = circumference
@@ -1133,7 +1131,7 @@ export default function Analytics() {
             </div>
             <div className="flex flex-wrap gap-4 mt-6 justify-center">
               {mockChartData.map((cityData, index) => {
-                const avgValue = cityData.values.reduce((sum, v) => sum + v.value, 0) / cityData.values.length
+                const avgValue = cityData.values.reduce((sum: number, v: { value: number }) => sum + v.value, 0) / cityData.values.length
                 return (
                   <div key={cityData.city} className="flex items-center gap-2">
                     <div 
@@ -1183,7 +1181,7 @@ export default function Analytics() {
                   ))
                 ))}
                 {/* X-axis labels */}
-                {mockChartData[0]?.values.map((point, index) => (
+                {mockChartData[0]?.values.map((point: { value: number; time: string }, index: number) => (
                   index % 4 === 0 && (
                     <text
                       key={index}
@@ -1411,31 +1409,29 @@ export default function Analytics() {
             <div className="text-sm text-gray-400">Average {METRIC_OPTIONS.find(m => m.id === selectedMetric)?.name}</div>
             <div className="text-2xl font-bold text-white">
               {mockChartData.length > 0 
-                ? Math.round(mockChartData.reduce((sum, city) => 
-                    sum + city.values.reduce((s, v) => s + v.value, 0) / city.values.length, 0
+                ? Math.round(mockChartData.reduce((sum: number, city: { values: { value: number }[] }) => 
+                    sum + city.values.reduce((s: number, v: { value: number }) => s + v.value, 0) / city.values.length, 0
                   ) / mockChartData.length)
                 : 0
               }
             </div>
             <div className="text-xs text-gray-500">{METRIC_OPTIONS.find(m => m.id === selectedMetric)?.unit}</div>
           </div>
-          
           <div className="bg-black/40 p-4 rounded-lg border border-white/10">
             <div className="text-sm text-gray-400">Highest Reading</div>
             <div className="text-2xl font-bold text-red-400">
               {mockChartData.length > 0 
-                ? Math.max(...mockChartData.flatMap(city => city.values.map(v => v.value)))
+                ? Math.max(...mockChartData.flatMap((city: { values: { value: number }[] }) => city.values.map((v: { value: number }) => v.value)))
                 : 0
               }
             </div>
             <div className="text-xs text-gray-500">{METRIC_OPTIONS.find(m => m.id === selectedMetric)?.unit}</div>
           </div>
-          
           <div className="bg-black/40 p-4 rounded-lg border border-white/10">
             <div className="text-sm text-gray-400">Lowest Reading</div>
             <div className="text-2xl font-bold text-green-400">
               {mockChartData.length > 0 
-                ? Math.min(...mockChartData.flatMap(city => city.values.map(v => v.value)))
+                ? Math.min(...mockChartData.flatMap((city: { values: { value: number }[] }) => city.values.map((v: { value: number }) => v.value)))
                 : 0
               }
             </div>
