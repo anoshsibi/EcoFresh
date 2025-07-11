@@ -149,16 +149,9 @@ export default function Analytics() {
   const [selectedMetric, setSelectedMetric] = useState('aqi')
   const [selectedChartType, setSelectedChartType] = useState('line')
   const [timeRange, setTimeRange] = useState('24h')
-  const [showComparison, setShowComparison] = useState(false)
   const [showHistoricalData, setShowHistoricalData] = useState(false)
   const [historicalCityData, setHistoricalCityData] = useState<CityChartData[]>([])
   const [loadingHistorical, setLoadingHistorical] = useState(false)
-  const [apiStatus, setApiStatus] = useState<{[key: string]: 'unknown' | 'active' | 'failed'}>({
-    openweather: 'unknown',
-    waqi: 'unknown',
-    iqair: 'unknown',
-    airnow: 'unknown'
-  })
 
   // Better color palette
   const getChartColor = (index: number) => {
@@ -489,16 +482,7 @@ export default function Analytics() {
         fetchFromAirNow(coords)
       ])
 
-      // Process results and update API status
-      const apiNames = ['openweather', 'waqi', 'iqair', 'airnow']
-      const newApiStatus = { ...apiStatus }
-      
-      apiResults.forEach((result, index: number) => {
-        const apiName = apiNames[index]
-        newApiStatus[apiName] = result.status === 'fulfilled' ? 'active' : 'failed'
-      })
-      
-      setApiStatus(newApiStatus)
+      // Process results
 
       // Find best result
       let bestResult = null
@@ -538,10 +522,55 @@ export default function Analytics() {
     }
   }
 
-  // Generate consistent mock data
+  // Generate time-range specific data points
+  const getTimeRangeConfig = (range: string) => {
+    switch (range) {
+      case '1h':
+        return {
+          count: 12,
+          formatTime: (i: number) => `${String(Math.floor(i * 5)).padStart(2, '0')}:${String((i * 5) % 60).padStart(2, '0')}`
+        }
+      case '6h':
+        return {
+          count: 12,
+          formatTime: (i: number) => `${String(Math.floor(i * 0.5)).padStart(2, '0')}:${(i * 30) % 60 === 0 ? '00' : '30'}`
+        }
+      case '24h':
+        return {
+          count: 24,
+          formatTime: (i: number) => `${String(i).padStart(2, '0')}:00`
+        }
+      case '7d':
+        return {
+          count: 7,
+          formatTime: (i: number) => {
+            const date = new Date()
+            date.setDate(date.getDate() - (6 - i))
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          }
+        }
+      case '30d':
+        return {
+          count: 30,
+          formatTime: (i: number) => {
+            const date = new Date()
+            date.setDate(date.getDate() - (29 - i))
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          }
+        }
+      default:
+        return {
+          count: 24,
+          formatTime: (i: number) => `${String(i).padStart(2, '0')}:00`
+        }
+    }
+  }
+
+  // Generate consistent mock data based on time range
   const generateMockHistoricalData = (): DataPoint[] => {
-    return Array.from({ length: 24 }, (_, i) => ({
-      time: `${String(i).padStart(2, '0')}:00`,
+    const config = getTimeRangeConfig(timeRange)
+    return Array.from({ length: config.count }, (_, i) => ({
+      time: config.formatTime(i),
       value: Math.floor(Math.random() * 150) + 10,
       aqi: Math.floor(Math.random() * 150) + 10,
       pm25: Math.floor(Math.random() * 50) + 5,
@@ -568,13 +597,14 @@ export default function Analytics() {
     
     const data = await response.json()
     
+    const config = getTimeRangeConfig(timeRange)
+    const relevantData = data.list.slice(-config.count)
+    
     return {
       source: 'OpenWeatherMap API',
-      data: data.list.slice(-24).map((item: any) => ({
-        time: new Date(item.dt * 1000).toLocaleTimeString('en-US', { 
-          hour: 'numeric', 
-          hour12: false 
-        }),
+      data: relevantData.map((item: any, index: number) => ({
+        time: config.formatTime(index),
+        value: Math.min(300, Math.max(0, Math.round(item.components.pm2_5 * 2))),
         aqi: Math.min(300, Math.max(0, Math.round(item.components.pm2_5 * 2))),
         pm25: Math.round(item.components.pm2_5 || 0),
         pm10: Math.round(item.components.pm10 || 0),
@@ -663,8 +693,9 @@ export default function Analytics() {
   // Generate historical data from WAQI current reading
   const generateWAQIHistoricalData = (waqiData: any): DataPoint[] => {
     const baseAQI = waqiData.aqi || 50
-    return Array.from({ length: 24 }, (_, i) => ({
-      time: `${String(i).padStart(2, '0')}:00`,
+    const config = getTimeRangeConfig(timeRange)
+    return Array.from({ length: config.count }, (_, i) => ({
+      time: config.formatTime(i),
       value: Math.max(0, baseAQI + Math.floor((Math.random() - 0.5) * 40)),
       aqi: Math.max(0, baseAQI + Math.floor((Math.random() - 0.5) * 40)),
       pm25: Math.max(0, (waqiData.iaqi?.pm25?.v || 25) + Math.floor((Math.random() - 0.5) * 20)),
@@ -778,19 +809,20 @@ export default function Analytics() {
     }
   }
 
-  // Use effect to load historical data when cities change
+  // Use effect to load historical data when cities or time range change
   useEffect(() => {
     if (showHistoricalData && selectedCities.length > 0) {
       loadHistoricalData()
     }
-  }, [selectedCities, showHistoricalData])
+  }, [selectedCities, showHistoricalData, timeRange])
 
   // Mock data for demonstration (when not using historical data)
   const generateMockData = (cities: string[], metric: string): CityChartData[] => {
+    const config = getTimeRangeConfig(timeRange)
     const data = cities.map((city: string) => ({
       city,
-      values: Array.from({ length: 24 }, (_, i) => ({
-        time: `${String(i).padStart(2, '0')}:00`,
+      values: Array.from({ length: config.count }, (_, i) => ({
+        time: config.formatTime(i),
         value: Math.floor(Math.random() * 150) + 10
       }))
     }))
@@ -859,27 +891,29 @@ export default function Analytics() {
         {selectedChartType === 'line' && (
           <div className="bg-black/40 p-6 rounded-xl border border-white/10">
             <div className="relative h-80">
-              <svg viewBox="0 0 915 340" className="w-full h-full">
+              <svg viewBox="0 0 1000 380" className="w-full h-full">
                 {/* Grid lines */}
                 <defs>
                   <pattern id="grid" width="40" height="30" patternUnits="userSpaceOnUse">
                     <path d="M 40 0 L 0 0 0 30" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="1"/>
                   </pattern>
                 </defs>
-                <rect width="800" height="300" fill="url(#grid)" />
+                <rect x="80" y="10" width="840" height="300" fill="url(#grid)" />
                 {/* Y-axis ticks and label */}
                 {[0, 0.25, 0.5, 0.75, 1].map((t, i) => (
                   <g key={i}>
-                    <text x="35" y={300 - t * 280 + 5} fill="rgba(255,255,255,0.6)" fontSize="12" textAnchor="end">{Math.round(maxValue * t)}</text>
-                    <line x1="0" y1={300 - t * 280} x2="800" y2={300 - t * 280} stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
+                    <text x="75" y={310 - t * 280 + 5} fill="rgba(255,255,255,0.6)" fontSize="12" textAnchor="end">{Math.round(maxValue * t)}</text>
+                    <line x1="80" y1={310 - t * 280} x2="920" y2={310 - t * 280} stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
                   </g>
                 ))}
                 {/* Y-axis label */}
-                <text x="10" y="150" fill="rgba(255,255,255,0.7)" fontSize="14" textAnchor="middle" transform="rotate(-90 10,150)">{METRIC_OPTIONS.find(m => m.id === selectedMetric)?.unit}</text>
+                <text x="25" y="160" fill="rgba(255,255,255,0.7)" fontSize="14" textAnchor="middle" transform="rotate(-90 25,160)">{METRIC_OPTIONS.find(m => m.id === selectedMetric)?.unit}</text>
                 {/* Chart lines */}
                 {mockChartData.map((cityData, cityIndex) => {
+                  const chartWidth = 840
+                  const chartStartX = 80
                   const points = cityData.values.map((point: DataPoint, index: number) => 
-                    `${index * (800 / (cityData.values.length - 1)) + 50},${300 - (point.value / maxValue) * 280}`
+                    `${chartStartX + (index * (chartWidth / (cityData.values.length - 1)))},${310 - (point.value / maxValue) * 280}`
                   ).join(' ')
                   return (
                     <g key={cityData.city}>
@@ -894,8 +928,8 @@ export default function Analytics() {
                       {cityData.values.map((point: DataPoint, index: number) => (
                         <circle
                           key={index}
-                          cx={index * (800 / (cityData.values.length - 1)) + 50}
-                          cy={300 - (point.value / maxValue) * 280}
+                          cx={chartStartX + (index * (chartWidth / (cityData.values.length - 1)))}
+                          cy={310 - (point.value / maxValue) * 280}
                           r="4"
                           fill={getChartColor(cityIndex)}
                           className="transition-all duration-300 hover:r-6"
@@ -907,12 +941,14 @@ export default function Analytics() {
                   )
                 })}
                 {/* X-axis labels */}
-                {mockChartData[0]?.values.map((point: DataPoint, index: number) => (
-                  index % 4 === 0 && (
+                {mockChartData[0]?.values.map((point: DataPoint, index: number) => {
+                  const dataLength = mockChartData[0].values.length
+                  const labelStep = Math.max(1, Math.floor(dataLength / 6)) // Show ~6 labels max
+                  return index % labelStep === 0 && (
                     <text
                       key={index}
-                      x={index * (800 / (mockChartData[0].values.length - 1))}
-                      y={320}
+                      x={80 + (index * (840 / (dataLength - 1)))}
+                      y={335}
                       fill="rgba(255,255,255,0.6)"
                       fontSize="12"
                       textAnchor="middle"
@@ -920,9 +956,11 @@ export default function Analytics() {
                       {point.time}
                     </text>
                   )
-                ))}
+                })}
                 {/* X-axis label */}
-                <text x="440" y="335" fill="rgba(255,255,255,0.7)" fontSize="14" textAnchor="middle">Time</text>
+                <text x="500" y="365" fill="rgba(255,255,255,0.7)" fontSize="14" textAnchor="middle">
+                  Time ({timeRange === '7d' ? '7 Days' : timeRange === '30d' ? '30 Days' : timeRange})
+                </text>
               </svg>
             </div>
             <div className="flex flex-wrap gap-4 mt-4">
@@ -979,7 +1017,7 @@ export default function Analytics() {
         {selectedChartType === 'area' && (
           <div className="bg-black/40 p-6 rounded-xl border border-white/10">
             <div className="relative h-80">
-              <svg viewBox="0 0 915 340" className="w-full h-full">
+              <svg viewBox="0 0 1000 380" className="w-full h-full">
                 <defs>
                   <pattern id="grid" width="40" height="30" patternUnits="userSpaceOnUse">
                     <path d="M 40 0 L 0 0 0 30" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="1"/>
@@ -991,20 +1029,22 @@ export default function Analytics() {
                     </linearGradient>
                   ))}
                 </defs>
-                <rect width="800" height="300" fill="url(#grid)" />
+                <rect x="80" y="10" width="840" height="300" fill="url(#grid)" />
                 {/* Y-axis ticks and label */}
                 {[0, 0.25, 0.5, 0.75, 1].map((t, i) => (
                   <g key={i}>
-                    <text x="35" y={300 - t * 280 + 5} fill="rgba(255,255,255,0.6)" fontSize="12" textAnchor="end">{Math.round(maxValue * t)}</text>
-                    <line x1="0" y1={300 - t * 280} x2="800" y2={300 - t * 280} stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
+                    <text x="75" y={310 - t * 280 + 5} fill="rgba(255,255,255,0.6)" fontSize="12" textAnchor="end">{Math.round(maxValue * t)}</text>
+                    <line x1="80" y1={310 - t * 280} x2="920" y2={310 - t * 280} stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
                   </g>
                 ))}
-                <text x="10" y="150" fill="rgba(255,255,255,0.7)" fontSize="14" textAnchor="middle" transform="rotate(-90 10,150)">{METRIC_OPTIONS.find(m => m.id === selectedMetric)?.unit}</text>
+                <text x="25" y="160" fill="rgba(255,255,255,0.7)" fontSize="14" textAnchor="middle" transform="rotate(-90 25,160)">{METRIC_OPTIONS.find(m => m.id === selectedMetric)?.unit}</text>
                 {mockChartData.map((cityData, cityIndex) => {
+                  const chartWidth = 840
+                  const chartStartX = 80
                   const points = cityData.values.map((point: DataPoint, index: number) => 
-                    `${index * (800 / (cityData.values.length - 1)) + 50},${300 - (point.value / maxValue) * 280}`
+                    `${chartStartX + (index * (chartWidth / (cityData.values.length - 1)))},${310 - (point.value / maxValue) * 280}`
                   ).join(' ')
-                  const areaPoints = `${points} 800,300 0,300`
+                  const areaPoints = `${points} 920,310 80,310`
                   return (
                     <g key={cityData.city}>
                       <polygon
@@ -1018,12 +1058,14 @@ export default function Analytics() {
                   )
                 })}
                 {/* X-axis labels */}
-                {mockChartData[0]?.values.map((point: DataPoint, index: number) => (
-                  index % 4 === 0 && (
+                {mockChartData[0]?.values.map((point: DataPoint, index: number) => {
+                  const dataLength = mockChartData[0].values.length
+                  const labelStep = Math.max(1, Math.floor(dataLength / 6))
+                  return index % labelStep === 0 && (
                     <text
                       key={index}
-                      x={index * (800 / (mockChartData[0].values.length - 1))}
-                      y={320}
+                      x={80 + (index * (840 / (dataLength - 1)))}
+                      y={335}
                       fill="rgba(255,255,255,0.6)"
                       fontSize="12"
                       textAnchor="middle"
@@ -1031,8 +1073,10 @@ export default function Analytics() {
                       {point.time}
                     </text>
                   )
-                ))}
-                <text x="440" y="335" fill="rgba(255,255,255,0.7)" fontSize="14" textAnchor="middle">Time</text>
+                })}
+                <text x="500" y="365" fill="rgba(255,255,255,0.7)" fontSize="14" textAnchor="middle">
+                  Time ({timeRange === '7d' ? '7 Days' : timeRange === '30d' ? '30 Days' : timeRange})
+                </text>
               </svg>
             </div>
             <div className="flex flex-wrap gap-4 mt-4">
@@ -1056,14 +1100,21 @@ export default function Analytics() {
               <div className="relative w-80 h-80">
                 <svg viewBox="0 0 200 200" className="w-full h-full transform -rotate-90">
                   {mockChartData.map((cityData, index) => {
+                    // Normalize values to 1-100 range
                     const avgValue = cityData.values.reduce((sum: number, v: DataPoint) => sum + v.value, 0) / cityData.values.length
-                    const total = mockChartData.reduce((sum: number, c: CityChartData) => sum + c.values.reduce((s: number, v: DataPoint) => s + v.value, 0) / c.values.length, 0)
-                    const percentage = avgValue / total
+                    const normalizedValue = Math.min(100, Math.max(1, Math.round((avgValue / 150) * 100))) // Normalize to 1-100
+                    const total = mockChartData.reduce((sum: number, c: CityChartData) => {
+                      const avg = c.values.reduce((s: number, v: DataPoint) => s + v.value, 0) / c.values.length
+                      return sum + Math.min(100, Math.max(1, Math.round((avg / 150) * 100)))
+                    }, 0)
+                    const percentage = normalizedValue / total
                     const angle = percentage * 360
                     const startAngle = mockChartData.slice(0, index).reduce((sum: number, c: CityChartData) => {
                       const avg = c.values.reduce((s: number, v: DataPoint) => s + v.value, 0) / c.values.length
-                      return sum + (avg / total) * 360
+                      const norm = Math.min(100, Math.max(1, Math.round((avg / 150) * 100)))
+                      return sum + (norm / total) * 360
                     }, 0)
+                    
                     const radius = 80
                     const centerX = 100
                     const centerY = 100
@@ -1074,16 +1125,17 @@ export default function Analytics() {
                     const x2 = centerX + radius * Math.cos(endAngleRad)
                     const y2 = centerY + radius * Math.sin(endAngleRad)
                     const largeArcFlag = angle > 180 ? 1 : 0
+                    
                     return (
                       <path
                         key={cityData.city}
                         d={`M ${centerX} ${centerY} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`}
                         fill={getChartColor(index)}
                         stroke="#1a1a1a"
-                        strokeWidth="2"
+                        strokeWidth="1"
                         className="transition-all duration-300 hover:opacity-80"
                       >
-                        <title>{`${cityData.city}: ${avgValue.toFixed(1)} ${METRIC_OPTIONS.find(m => m.id === selectedMetric)?.unit} (${(percentage * 100).toFixed(1)}%)`}</title>
+                        <title>{`${cityData.city}: ${(percentage * 100).toFixed(1)}%`}</title>
                       </path>
                     )
                   })}
@@ -1099,13 +1151,19 @@ export default function Analytics() {
             <div className="flex flex-wrap gap-4 mt-6 justify-center">
               {mockChartData.map((cityData, index) => {
                 const avgValue = cityData.values.reduce((sum: number, v: DataPoint) => sum + v.value, 0) / cityData.values.length
+                const normalizedValue = Math.min(100, Math.max(1, Math.round((avgValue / 150) * 100)))
+                const total = mockChartData.reduce((sum: number, c: CityChartData) => {
+                  const avg = c.values.reduce((s: number, v: DataPoint) => s + v.value, 0) / c.values.length
+                  return sum + Math.min(100, Math.max(1, Math.round((avg / 150) * 100)))
+                }, 0)
+                const percentage = (normalizedValue / total) * 100
                 return (
                   <div key={cityData.city} className="flex items-center gap-2">
                     <div 
                       className="w-3 h-3 rounded-full"
                       style={{ backgroundColor: getChartColor(index) }}
                     />
-                    <span className="text-sm text-gray-300">{cityData.city}: {avgValue.toFixed(1)} {METRIC_OPTIONS.find(m => m.id === selectedMetric)?.unit}</span>
+                    <span className="text-sm text-gray-300">{cityData.city}: {percentage.toFixed(1)}%</span>
                   </div>
                 )
               })}
@@ -1120,28 +1178,61 @@ export default function Analytics() {
               <div className="relative w-80 h-80">
                 <svg viewBox="0 0 200 200" className="w-full h-full transform -rotate-90">
                   {mockChartData.map((cityData, index) => {
+                    // Normalize values to 1-100 range
                     const avgValue = cityData.values.reduce((sum: number, v: DataPoint) => sum + v.value, 0) / cityData.values.length
-                    const total = mockChartData.reduce((sum: number, c: CityChartData) => sum + c.values.reduce((s: number, v: DataPoint) => s + v.value, 0) / c.values.length, 0)
-                    const percentage = avgValue / total
-                    const circumference = 2 * Math.PI * 70
-                    const strokeDasharray = circumference
-                    const strokeDashoffset = circumference - (percentage * circumference)
+                    const normalizedValue = Math.min(100, Math.max(1, Math.round((avgValue / 150) * 100))) // Normalize to 1-100
+                    const total = mockChartData.reduce((sum: number, c: CityChartData) => {
+                      const avg = c.values.reduce((s: number, v: DataPoint) => s + v.value, 0) / c.values.length
+                      return sum + Math.min(100, Math.max(1, Math.round((avg / 150) * 100)))
+                    }, 0)
+                    const percentage = normalizedValue / total
+                    const angle = percentage * 360
+                    const startAngle = mockChartData.slice(0, index).reduce((sum: number, c: CityChartData) => {
+                      const avg = c.values.reduce((s: number, v: DataPoint) => s + v.value, 0) / c.values.length
+                      const norm = Math.min(100, Math.max(1, Math.round((avg / 150) * 100)))
+                      return sum + (norm / total) * 360
+                    }, 0)
+                    
+                    const outerRadius = 80
+                    const innerRadius = 45
+                    const centerX = 100
+                    const centerY = 100
+                    const startAngleRad = (startAngle * Math.PI) / 180
+                    const endAngleRad = ((startAngle + angle) * Math.PI) / 180
+                    
+                    // Outer arc points
+                    const x1Outer = centerX + outerRadius * Math.cos(startAngleRad)
+                    const y1Outer = centerY + outerRadius * Math.sin(startAngleRad)
+                    const x2Outer = centerX + outerRadius * Math.cos(endAngleRad)
+                    const y2Outer = centerY + outerRadius * Math.sin(endAngleRad)
+                    
+                    // Inner arc points
+                    const x1Inner = centerX + innerRadius * Math.cos(startAngleRad)
+                    const y1Inner = centerY + innerRadius * Math.sin(startAngleRad)
+                    const x2Inner = centerX + innerRadius * Math.cos(endAngleRad)
+                    const y2Inner = centerY + innerRadius * Math.sin(endAngleRad)
+                    
+                    const largeArcFlag = angle > 180 ? 1 : 0
+                    
+                    const pathData = [
+                      `M ${x1Outer} ${y1Outer}`, // Move to start of outer arc
+                      `A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 1 ${x2Outer} ${y2Outer}`, // Outer arc
+                      `L ${x2Inner} ${y2Inner}`, // Line to inner arc
+                      `A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${x1Inner} ${y1Inner}`, // Inner arc (reverse direction)
+                      'Z' // Close path
+                    ].join(' ')
+                    
                     return (
-                      <circle
+                      <path
                         key={cityData.city}
-                        cx="100"
-                        cy="100"
-                        r="70"
-                        fill="none"
-                        stroke={getChartColor(index)}
-                        strokeWidth="20"
-                        strokeDasharray={strokeDasharray}
-                        strokeDashoffset={strokeDashoffset}
-                        className="transition-all duration-500"
-                        transform={`rotate(${index * (360 / mockChartData.length)} 100 100)`}
+                        d={pathData}
+                        fill={getChartColor(index)}
+                        stroke="#1a1a1a"
+                        strokeWidth="1"
+                        className="transition-all duration-300 hover:opacity-80"
                       >
-                        <title>{`${cityData.city}: ${avgValue.toFixed(1)} ${METRIC_OPTIONS.find(m => m.id === selectedMetric)?.unit} (${(percentage * 100).toFixed(1)}%)`}</title>
-                      </circle>
+                        <title>{`${cityData.city}: ${(percentage * 100).toFixed(1)}%`}</title>
+                      </path>
                     )
                   })}
                 </svg>
@@ -1156,13 +1247,19 @@ export default function Analytics() {
             <div className="flex flex-wrap gap-4 mt-6 justify-center">
               {mockChartData.map((cityData, index) => {
                 const avgValue = cityData.values.reduce((sum: number, v: DataPoint) => sum + v.value, 0) / cityData.values.length
+                const normalizedValue = Math.min(100, Math.max(1, Math.round((avgValue / 150) * 100)))
+                const total = mockChartData.reduce((sum: number, c: CityChartData) => {
+                  const avg = c.values.reduce((s: number, v: DataPoint) => s + v.value, 0) / c.values.length
+                  return sum + Math.min(100, Math.max(1, Math.round((avg / 150) * 100)))
+                }, 0)
+                const percentage = (normalizedValue / total) * 100
                 return (
                   <div key={cityData.city} className="flex items-center gap-2">
                     <div 
                       className="w-3 h-3 rounded-full"
                       style={{ backgroundColor: getChartColor(index) }}
                     />
-                    <span className="text-sm text-gray-300">{cityData.city}: {avgValue.toFixed(1)} {METRIC_OPTIONS.find(m => m.id === selectedMetric)?.unit}</span>
+                    <span className="text-sm text-gray-300">{cityData.city}: {percentage.toFixed(1)}%</span>
                   </div>
                 )
               })}
@@ -1174,27 +1271,29 @@ export default function Analytics() {
         {selectedChartType === 'scatter' && (
           <div className="bg-black/40 p-6 rounded-xl border border-white/10">
             <div className="relative h-80">
-              <svg viewBox="0 0 915 340" className="w-full h-full">
+              <svg viewBox="0 0 1000 380" className="w-full h-full">
                 <defs>
                   <pattern id="grid" width="40" height="30" patternUnits="userSpaceOnUse">
                     <path d="M 40 0 L 0 0 0 30" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="1"/>
                   </pattern>
                 </defs>
-                <rect width="800" height="300" fill="url(#grid)" />
+                <rect x="80" y="10" width="840" height="300" fill="url(#grid)" />
                 {/* Y-axis ticks and label */}
                 {[0, 0.25, 0.5, 0.75, 1].map((t, i) => (
                   <g key={i}>
-                    <text x="35" y={300 - t * 280 + 5} fill="rgba(255,255,255,0.6)" fontSize="12" textAnchor="end">{Math.round(maxValue * t)}</text>
-                    <line x1="0" y1={300 - t * 280} x2="800" y2={300 - t * 280} stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
+                    <text x="75" y={310 - t * 280 + 5} fill="rgba(255,255,255,0.6)" fontSize="12" textAnchor="end">{Math.round(maxValue * t)}</text>
+                    <line x1="80" y1={310 - t * 280} x2="920" y2={310 - t * 280} stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
                   </g>
                 ))}
-                <text x="10" y="150" fill="rgba(255,255,255,0.7)" fontSize="14" textAnchor="middle" transform="rotate(-90 10,150)">{METRIC_OPTIONS.find(m => m.id === selectedMetric)?.unit}</text>
-                {mockChartData.map((cityData, cityIndex) => (
-                  cityData.values.map((point: DataPoint, index: number) => (
+                <text x="25" y="160" fill="rgba(255,255,255,0.7)" fontSize="14" textAnchor="middle" transform="rotate(-90 25,160)">{METRIC_OPTIONS.find(m => m.id === selectedMetric)?.unit}</text>
+                {mockChartData.map((cityData, cityIndex) => {
+                  const chartWidth = 840
+                  const chartStartX = 80
+                  return cityData.values.map((point: DataPoint, index: number) => (
                     <circle
                       key={`${cityData.city}-${index}`}
-                      cx={index * (800 / (cityData.values.length - 1)) + 50}
-                      cy={300 - (point.value / maxValue) * 280}
+                      cx={chartStartX + (index * (chartWidth / (cityData.values.length - 1)))}
+                      cy={310 - (point.value / maxValue) * 280}
                       r="6"
                       fill={getChartColor(cityIndex)}
                       fillOpacity="0.7"
@@ -1203,14 +1302,16 @@ export default function Analytics() {
                       <title>{`${cityData.city}: ${point.value} at ${point.time}`}</title>
                     </circle>
                   ))
-                ))}
+                })}
                 {/* X-axis labels */}
-                {mockChartData[0]?.values.map((point: DataPoint, index: number) => (
-                  index % 4 === 0 && (
+                {mockChartData[0]?.values.map((point: DataPoint, index: number) => {
+                  const dataLength = mockChartData[0].values.length
+                  const labelStep = Math.max(1, Math.floor(dataLength / 6))
+                  return index % labelStep === 0 && (
                     <text
                       key={index}
-                      x={index * (800 / (mockChartData[0].values.length - 1))}
-                      y={320}
+                      x={80 + (index * (840 / (dataLength - 1)))}
+                      y={335}
                       fill="rgba(255,255,255,0.6)"
                       fontSize="12"
                       textAnchor="middle"
@@ -1218,8 +1319,10 @@ export default function Analytics() {
                       {point.time}
                     </text>
                   )
-                ))}
-                <text x="440" y="335" fill="rgba(255,255,255,0.7)" fontSize="14" textAnchor="middle">Time</text>
+                })}
+                <text x="500" y="365" fill="rgba(255,255,255,0.7)" fontSize="14" textAnchor="middle">
+                  Time ({timeRange === '7d' ? '7 Days' : timeRange === '30d' ? '30 Days' : timeRange})
+                </text>
               </svg>
             </div>
             <div className="flex flex-wrap gap-4 mt-4">
@@ -1316,28 +1419,31 @@ export default function Analytics() {
         {selectedChartType === 'histogram' && (
           <div className="bg-black/40 p-6 rounded-xl border border-white/10">
             <div className="relative h-80">
-              <svg viewBox="0 0 915 340" className="w-full h-full">
+              <svg viewBox="0 0 1000 380" className="w-full h-full">
                 <defs>
                   <pattern id="grid" width="40" height="30" patternUnits="userSpaceOnUse">
                     <path d="M 40 0 L 0 0 0 30" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="1"/>
                   </pattern>
                 </defs>
-                <rect width="800" height="300" fill="url(#grid)" />
+                <rect x="80" y="10" width="840" height="300" fill="url(#grid)" />
                 {/* Y-axis ticks and label */}
                 {[0, 0.25, 0.5, 0.75, 1].map((t, i) => (
                   <g key={i}>
-                    <text x="35" y={300 - t * 280 + 5} fill="rgba(255,255,255,0.6)" fontSize="12" textAnchor="end">{Math.round(maxValue * t)}</text>
-                    <line x1="0" y1={300 - t * 280} x2="800" y2={300 - t * 280} stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
+                    <text x="75" y={310 - t * 280 + 5} fill="rgba(255,255,255,0.6)" fontSize="12" textAnchor="end">{Math.round(maxValue * t)}</text>
+                    <line x1="80" y1={310 - t * 280} x2="920" y2={310 - t * 280} stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
                   </g>
                 ))}
-                <text x="10" y="150" fill="rgba(255,255,255,0.7)" fontSize="14" textAnchor="middle" transform="rotate(-90 10,150)">{METRIC_OPTIONS.find(m => m.id === selectedMetric)?.unit}</text>
-                {mockChartData.map((cityData, cityIndex) => 
-                  cityData.values.map((point: DataPoint, index: number) => (
+                <text x="25" y="160" fill="rgba(255,255,255,0.7)" fontSize="14" textAnchor="middle" transform="rotate(-90 25,160)">{METRIC_OPTIONS.find(m => m.id === selectedMetric)?.unit}</text>
+                {mockChartData.map((cityData, cityIndex) => {
+                  const chartWidth = 840
+                  const chartStartX = 80
+                  const barWidth = Math.max(chartWidth / cityData.values.length - mockChartData.length * 2, 8)
+                  return cityData.values.map((point: DataPoint, index: number) => (
                     <rect
                       key={`${cityData.city}-${index}`}
-                      x={index * (800 / cityData.values.length) + cityIndex * 3 + 50}
-                      y={300 - (point.value / maxValue) * 280}
-                      width={Math.max(800 / cityData.values.length - mockChartData.length * 3, 10)}
+                      x={chartStartX + (index * (chartWidth / cityData.values.length)) + cityIndex * 2}
+                      y={310 - (point.value / maxValue) * 280}
+                      width={barWidth}
                       height={(point.value / maxValue) * 280}
                       fill={getChartColor(cityIndex)}
                       fillOpacity="0.8"
@@ -1346,17 +1452,19 @@ export default function Analytics() {
                       <title>{`${cityData.city}: ${point.value} at ${point.time}`}</title>
                     </rect>
                   ))
-                )}
+                })}
                 {/* X-axis labels */}
-                {mockChartData[0]?.values.map((point: DataPoint, index: number) => (
-                  index % 4 === 0 && (
+                {mockChartData[0]?.values.map((point: DataPoint, index: number) => {
+                  const dataLength = mockChartData[0].values.length
+                  const labelStep = Math.max(1, Math.floor(dataLength / 6))
+                  return index % labelStep === 0 && (
                     <g key={index}>
-                      <rect x={index * (800 / (mockChartData[0].values.length - 1)) - 22 + 50} y={305} width="44" height="20" fill="rgba(30,41,59,0.85)" rx="4" />
+                      <rect x={80 + (index * (840 / dataLength)) - 18} y={320} width="36" height="18" fill="rgba(30,41,59,0.85)" rx="4" />
                       <text
-                        x={index * (800 / (mockChartData[0].values.length - 1)) + 22}
-                        y={320}
+                        x={80 + (index * (840 / dataLength))}
+                        y={332}
                         fill="#fff"
-                        fontSize="15"
+                        fontSize="12"
                         fontWeight="bold"
                         textAnchor="middle"
                         style={{ pointerEvents: 'none' }}
@@ -1365,9 +1473,11 @@ export default function Analytics() {
                       </text>
                     </g>
                   )
-                ))}
+                })}
                 {/* X-axis label */}
-                <text x="440" y="338" fill="#fff" fontSize="16" fontWeight="bold" textAnchor="middle">{selectedChartType === 'histogram' ? 'Category' : 'Time'}</text>
+                <text x="500" y="365" fill="#fff" fontSize="14" fontWeight="bold" textAnchor="middle">
+                  Time ({timeRange === '7d' ? '7 Days' : timeRange === '30d' ? '30 Days' : timeRange})
+                </text>
               </svg>
             </div>
             <div className="flex flex-wrap gap-4 mt-4">
@@ -1663,29 +1773,12 @@ export default function Analytics() {
                 <label className="flex items-center space-x-2 text-sm">
                   <input
                     type="checkbox"
-                    checked={showComparison}
-                    onChange={(e) => setShowComparison(e.target.checked)}
-                    className="rounded border-white/20 bg-black/60 text-blue-500 focus:ring-blue-500"
-                  />
-                  <span className="text-gray-300">Show Comparison</span>
-                </label>
-                <label className="flex items-center space-x-2 text-sm">
-                  <input
-                    type="checkbox"
                     checked={showHistoricalData}
                     onChange={(e) => setShowHistoricalData(e.target.checked)}
                     className="rounded border-white/20 bg-black/60 text-blue-500 focus:ring-blue-500"
                   />
                   <span className="text-gray-300">Use Real Historical Data</span>
                 </label>
-                
-                {/* Test Live APIs Button */}
-                <button
-                  onClick={testApiConnectivity}
-                  className="w-full p-2 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
-                >
-                  🧪 Test Live APIs
-                </button>
                 
                 {loadingHistorical && (
                   <div className="flex items-center space-x-2 text-xs text-blue-400">
@@ -1696,36 +1789,7 @@ export default function Analytics() {
               </div>
             </div>
 
-            {/* API Status Panel */}
-            <div className="bg-black/40 p-6 rounded-xl border border-white/10">
-              <h3 className="text-lg font-semibold mb-4 text-white">🌐 API Status</h3>
-              <div className="space-y-2">
-                {Object.entries(API_CONFIGS).map(([apiKey, config]) => (
-                  <div key={apiKey} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-300">{config.name}</span>
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${
-                        apiStatus[apiKey] === 'active' ? 'bg-green-400' :
-                        apiStatus[apiKey] === 'failed' ? 'bg-red-400' :
-                        'bg-gray-400'
-                      }`}></div>
-                      <span className={`text-xs ${
-                        apiStatus[apiKey] === 'active' ? 'text-green-400' :
-                        apiStatus[apiKey] === 'failed' ? 'text-red-400' :
-                        'text-gray-400'
-                      }`}>
-                        {apiStatus[apiKey] === 'active' ? 'Active' :
-                         apiStatus[apiKey] === 'failed' ? 'Failed' :
-                         'Unknown'}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3 text-xs text-gray-500">
-                System automatically uses the first available API
-              </div>
-            </div>
+
 
             {/* Export Options */}
             <div className="bg-black/40 p-6 rounded-xl border border-white/10">

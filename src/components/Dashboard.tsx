@@ -357,15 +357,38 @@ export default function Dashboard() {
             return countryName === selectedCountry && city.state === value
           })
           .map(city => city.name)
-        
         const newStateData = stateCities.slice(0, 10).map(city => generateCityData(city, selectedCountry)).filter(Boolean) as CityData[]
         setCountryData(newStateData)
+        // Automatically pin all cities in the selected state for monitoring
+        setMonitoredCitiesData(prevData => {
+          const newCities = stateCities
+            .map(cityName => generateCityData(cityName, selectedCountry))
+            .filter(cityData => cityData && !prevData.some(c => c.name === cityData!.name)) as CityData[]
+          return [...prevData, ...newCities]
+        })
+        setSelectedCities(prev => {
+          const newCityNames = stateCities.filter(cityName => !prev.includes(cityName))
+          return [...prev, ...newCityNames]
+        })
       }
     } else {
       // Country has no states - handle individual city selection
       const selectedCityData = generateCityData(value, selectedCountry)
       if (selectedCityData) {
         setCountryData([selectedCityData])
+        // Automatically pin for monitoring
+        setMonitoredCitiesData(prevData => {
+          if (prevData.some(city => city.name === value)) {
+            return prevData
+          }
+          return [...prevData, selectedCityData]
+        })
+        setSelectedCities(prev => {
+          if (prev.includes(value)) {
+            return prev
+          }
+          return [...prev, value]
+        })
       }
     }
   }

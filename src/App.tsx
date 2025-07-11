@@ -7,7 +7,7 @@ import News from './components/News'
 import About from './components/About'
 
 function App() {
-  const [currentView, setCurrentView] = useState<'main' | 'dashboard' | 'analytics' | 'news' | 'about'>('main')
+  const [currentView, setCurrentView] = useState<'main' | 'dashboard' | 'analytics' | 'news' | 'about' | 'splash'>('main')
   const [showSplash, setShowSplash] = useState(false)
   const [splashFadeOut, setSplashFadeOut] = useState(false)
   const [barOpacity, setBarOpacity] = useState(0)
@@ -15,67 +15,53 @@ function App() {
 
   // Check if this is a page reload vs navigation
   useEffect(() => {
-    // Clear any previous state
     setShowSplash(false)
     setSplashFadeOut(false)
     setBarOpacity(0)
     setBarWidth(0)
-    
-    // Use a more reliable method to detect page reload
-    // Method 1: Check if we're on the main view AND it's a fresh load
-    const isMainView = window.location.hash === '' || window.location.hash === '#' || window.location.hash === '#main'
-    
-    // Method 2: Use performance navigation API
-    const navigationEntries = performance.getEntriesByType('navigation')
-    let isPageReload = false
-    
-    if (navigationEntries.length > 0) {
-      const navigationType = (navigationEntries[0] as PerformanceNavigationTiming).type
-      isPageReload = navigationType === 'reload'
+
+    // Detect true landing (no hash, direct visit)
+    const isLanding = window.location.hash === '' || window.location.hash === '#';
+    // If landing, clear splash flag to force splash
+    if (isLanding) {
+      sessionStorage.removeItem('splash-shown');
     }
-    
-    // Method 3: Check document.referrer and if we haven't set a navigation flag yet
-    const isFirstLoad = !sessionStorage.getItem('app-has-loaded')
-    
-    // Show splash if:
-    // 1. It's a page reload, OR  
-    // 2. It's the first load of the session AND we're on main view
-    if (isPageReload || (isFirstLoad && isMainView)) {
-      console.log('Showing splash screen - Reload:', isPageReload, 'First load:', isFirstLoad, 'Main view:', isMainView)
-      
-      setShowSplash(true)
-      
-      // Mark that app has loaded in this session
-      sessionStorage.setItem('app-has-loaded', 'true')
+
+    const splashShown = sessionStorage.getItem('splash-shown') === 'true';
+    const navigationEntries = performance.getEntriesByType('navigation');
+    let isPageReload = false;
+    if (navigationEntries.length > 0) {
+      const navigationType = (navigationEntries[0] as PerformanceNavigationTiming).type;
+      isPageReload = navigationType === 'reload';
+    }
+    // Show splash if first landing (no flag) OR page reload
+    if (!splashShown || isPageReload) {
+      setShowSplash(true);
+      sessionStorage.setItem('splash-shown', 'true');
+      setCurrentView('splash');
       
       // Handle splash screen animation
       const barOpacityTimer = setTimeout(() => {
         setBarOpacity(1);
-        
         const barWidthTimer = setTimeout(() => {
           setBarWidth(100);
         }, 500);
-        
         return () => clearTimeout(barWidthTimer);
       }, 2000);
-      
       const splashTimer = setTimeout(() => {
-        setSplashFadeOut(true)
+        setSplashFadeOut(true);
         setTimeout(() => {
-          setShowSplash(false)
-        }, 800)
-      }, 4500)
-
+          setShowSplash(false);
+          setCurrentView('main');
+        }, 800);
+      }, 4500);
       return () => {
         clearTimeout(barOpacityTimer);
         clearTimeout(splashTimer);
-      }
-    } else {
-      console.log('Not showing splash screen - navigation detected')
+      };
     }
   }, [])
 
-  // Skip splash on click
   const handleSkipSplash = () => {
     if (showSplash && !splashFadeOut) {
       setSplashFadeOut(true)
@@ -93,8 +79,8 @@ function App() {
       } else if (hash === '#analytics') {
         setCurrentView('analytics')
       } else if (hash === '#news') {
-        setCurrentView('news')
-      } else if (hash === '#about') {
+        setCurrentView('news'
+        )} else if (hash === '#about') {
         setCurrentView('about')
       } else {
         setCurrentView('main')
@@ -180,20 +166,22 @@ function App() {
       )}
 
       {/* Main App Content */}
-      <motion.div
-        key={currentView}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
-        transition={{ duration: 0.5, ease: "easeInOut" }}
-        className="min-h-screen"
-      >
-        {currentView === 'main' && <MainPage />}
-        {currentView === 'dashboard' && <Dashboard />}
-        {currentView === 'analytics' && <Analytics />}
-        {currentView === 'news' && <News />}
-        {currentView === 'about' && <About />}
-      </motion.div>
+      {currentView !== 'splash' && (
+        <motion.div
+          key={currentView}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.5, ease: "easeInOut" }}
+          className="min-h-screen"
+        >
+          {currentView === 'main' && <MainPage />}
+          {currentView === 'dashboard' && <Dashboard />}
+          {currentView === 'analytics' && <Analytics />}
+          {currentView === 'news' && <News />}
+          {currentView === 'about' && <About />}
+        </motion.div>
+      )}
     </div>
   )
 }
