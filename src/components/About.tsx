@@ -29,13 +29,13 @@ export default function About() {
   })
   const [donationAmount, setDonationAmount] = useState('25')
 
-  const navigateTo = (hash: string) => {
-    if (hash === '') {
-      window.location.hash = ''
-    } else {
-      window.location.hash = hash
-    }
-  }
+  // const navigateTo = (hash: string) => {
+  //   if (hash === '') {
+  //     window.location.hash = ''
+  //   } else {
+  //     window.location.hash = hash
+  //   }
+  // }
 
   const communityStats: CommunityStats = {
     members: '125,000+',

@@ -77,13 +77,13 @@ export default function News() {
   const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null)
   const [showModal, setShowModal] = useState(false)
 
-  const navigateTo = (hash: string) => {
-    if (hash === '') {
-      window.location.hash = ''
-    } else {
-      window.location.hash = hash
-    }
-  }
+  // const navigateTo = (hash: string) => {
+  //   if (hash === '') {
+  //     window.location.hash = ''
+  //   } else {
+  //     window.location.hash = hash
+  //   }
+  // }
 
   const openArticle = (article: NewsArticle) => {
     setSelectedArticle(article)

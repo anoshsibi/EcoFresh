@@ -4,9 +4,11 @@ interface NavbarProps {
   currentPage?: string
   onJoinCommunity?: () => void
   onDonate?: () => void
+  onLogout?: () => void
+  userEmail?: string
 }
 
-export default function Navbar({ currentPage = '', onJoinCommunity, onDonate }: NavbarProps) {
+export default function Navbar({ currentPage = '', onJoinCommunity, onDonate, onLogout, userEmail }: NavbarProps) {
   const navigateTo = (hash: string) => {
     if (hash === '') {
       window.location.hash = ''
@@ -58,6 +60,23 @@ export default function Navbar({ currentPage = '', onJoinCommunity, onDonate }: 
                 {item.label}
               </button>
             ))}
+            
+            {/* User info and logout button */}
+            {onLogout && (
+              <div className="flex items-center space-x-4 ml-8 pl-8 border-l border-white/20">
+                {userEmail && (
+                  <span className="text-sm text-gray-300">
+                    Welcome, {userEmail.split('@')[0]}
+                  </span>
+                )}
+                <button 
+                  onClick={onLogout}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                >
+                  Logout
+                </button>
+              </div>
+            )}
             
             {/* Conditional Action Buttons - Only show on About page */}
             {currentPage === 'about' && (onJoinCommunity || onDonate) && (

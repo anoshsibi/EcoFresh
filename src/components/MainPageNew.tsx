@@ -4,7 +4,20 @@ import Hero from './Hero'
 import Footer from './Footer'
 import { useAirQuality } from '../hooks/useAirQuality'
 
-export default function MainPage() {
+interface UserData {
+  id: number
+  email: string
+  firstName: string
+  lastName: string
+  loginTime: string
+}
+
+interface MainPageProps {
+  userData?: UserData | null
+  onLogout?: () => void
+}
+
+export default function MainPage({ userData, onLogout }: MainPageProps) {
   const [showSplash, setShowSplash] = useState(true)
   const [splashFadeOut, setSplashFadeOut] = useState(false)
   const [barOpacity, setBarOpacity] = useState(0)
@@ -137,7 +150,11 @@ export default function MainPage() {
 
       {/* Main Content */}
       <div className={`min-h-screen bg-gradient-to-br from-[#0a0a0f] via-[#1a1a2e] to-[#16213e] ${showSplash ? 'opacity-0 pointer-events-none' : 'opacity-100 animate-main-content-fade-in'}`}>
-      <Navbar currentPage="" />
+      <Navbar 
+        currentPage="" 
+        onLogout={onLogout}
+        userEmail={userData?.email}
+      />
       <Hero />
       
       {/* Air Quality Overview Section */}
