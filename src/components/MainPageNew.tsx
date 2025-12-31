@@ -5,7 +5,7 @@ import Footer from './Footer'
 import { useAirQuality } from '../hooks/useAirQuality'
 
 interface UserData {
-  id: number
+  id: string
   email: string
   firstName: string
   lastName: string

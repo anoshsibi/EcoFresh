@@ -26,10 +26,18 @@ export interface CountryPriority {
   displayName: string
 }
 
+export interface CityPriority {
+  city: string
+  country: string
+  priority: 'high' | 'medium' | 'low'
+  score: number
+}
+
 class PriorityManager {
   private static instance: PriorityManager
   private preferences: UserPreferences
   private countryCache: Map<string, CachedCityData[]> = new Map()
+  private cityCache: Map<string, CachedCityData> = new Map()
   private readonly CACHE_DURATION = 10 * 60 * 1000 // 10 minutes
   private readonly STORAGE_KEY = 'ecofresh_preferences'
 
@@ -70,6 +78,28 @@ class PriorityManager {
     } catch (error) {
       console.warn('Failed to save preferences:', error)
     }
+  }
+
+  // Track city selection
+  trackCitySelection(city: string, country: string): void {
+    const now = Date.now()
+    
+    // Add to session history
+    this.preferences.sessionHistory.push({
+      city,
+      country,
+      timestamp: now
+    })
+
+    // Keep only last 50 selections
+    if (this.preferences.sessionHistory.length > 50) {
+      this.preferences.sessionHistory = this.preferences.sessionHistory.slice(-50)
+    }
+
+    // Update frequent countries
+    this.updateFrequentCountries(country)
+
+    this.savePreferences()
   }
 
   // Track user interactions - now focuses on countries
@@ -113,6 +143,48 @@ class PriorityManager {
       .map(c => c.country)
   }
 
+  // Get prioritized city list
+  getCityPriorities(allCities: Array<{name: string, country: string}>): CityPriority[] {
+    const popularCities = ['New York', 'London', 'Paris', 'Tokyo', 'Toronto', 'Los Angeles', 'Berlin']
+    
+    return allCities.map(city => {
+      let score = 0
+      let priority: 'high' | 'medium' | 'low' = 'low'
+
+      // Base popular cities (always high priority)
+      if (popularCities.includes(city.name)) {
+        score += 100
+        priority = 'high'
+      }
+
+      // User's frequent countries
+      if (this.preferences.frequentCountries.includes(city.country)) {
+        score += 60
+        priority = priority === 'low' ? 'medium' : priority
+      }
+
+      // Session history frequency
+      const cityHistory = this.preferences.sessionHistory.filter(h => h.city === city.name)
+      score += cityHistory.length * 20
+
+      // Recent activity bonus
+      const recentActivity = cityHistory.filter(h => Date.now() - h.timestamp < 24 * 60 * 60 * 1000)
+      score += recentActivity.length * 40
+
+      // Boost priority if recently accessed
+      if (recentActivity.length > 0) {
+        priority = 'high'
+      }
+
+      return {
+        city: city.name,
+        country: city.country,
+        priority,
+        score
+      }
+    }).sort((a, b) => b.score - a.score)
+  }
+
   // Get prioritized country list
   getCountryPriorities(allCountries: Array<{name: string, code: string}>): CountryPriority[] {
     const popularCountries = ['Canada', 'United States', 'United Kingdom', 'France', 'Germany', 'Japan', 'Australia']
@@ -154,6 +226,28 @@ class PriorityManager {
         displayName: country.name
       }
     }).sort((a, b) => b.score - a.score)
+  }
+
+  // City-level cache management
+  getCachedData(cityKey: string): CityAirQuality | null {
+    const cached = this.cityCache.get(cityKey)
+    if (!cached) return null
+
+    // Check if cache is still valid
+    if (Date.now() - cached.timestamp > this.CACHE_DURATION) {
+      this.cityCache.delete(cityKey)
+      return null
+    }
+
+    return cached.data
+  }
+
+  setCachedData(cityKey: string, data: CityAirQuality): void {
+    this.cityCache.set(cityKey, {
+      data,
+      timestamp: Date.now(),
+      fetchCount: 1
+    })
   }
 
   // Country-level cache management
@@ -208,6 +302,15 @@ class PriorityManager {
   // Clear old cache entries
   cleanupCache(): void {
     const now = Date.now()
+    
+    // Clean city cache
+    for (const [cityKey, cached] of this.cityCache.entries()) {
+      if (now - cached.timestamp > this.CACHE_DURATION) {
+        this.cityCache.delete(cityKey)
+      }
+    }
+    
+    // Clean country cache
     for (const [country, cached] of this.countryCache.entries()) {
       if (cached.length > 0 && now - cached[0].timestamp > this.CACHE_DURATION) {
         this.countryCache.delete(country)
@@ -225,6 +328,7 @@ class PriorityManager {
     localStorage.removeItem(this.STORAGE_KEY)
     this.preferences = this.loadPreferences()
     this.countryCache.clear()
+    this.cityCache.clear()
   }
 }
 

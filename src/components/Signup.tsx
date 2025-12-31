@@ -309,25 +309,7 @@ export default function Signup({ onSignup, onSwitchToLogin }: SignupProps) {
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="my-6 flex items-center">
-            <div className="flex-1 border-t border-gray-600"></div>
-            <span className="px-4 text-gray-400 text-sm">or</span>
-            <div className="flex-1 border-t border-gray-600"></div>
-          </div>
 
-          {/* Social Signup */}
-          <div className="space-y-3">
-            <button className="w-full py-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white font-medium transition-all duration-300 flex items-center justify-center">
-              <span className="mr-2">🌐</span>
-              Sign up with Google
-            </button>
-           
-            {/* <button className="w-full py-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white font-medium transition-all duration-300 flex items-center justify-center">
-              <span className="mr-2">👥</span>
-              Sign up with Facebook
-            </button> */}
-          </div>
 
           {/* Login Link */}
           <div className="mt-8 text-center">

@@ -146,25 +146,7 @@ export default function Login({ onLogin, onSwitchToSignup }: LoginProps) {
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="my-6 flex items-center">
-            <div className="flex-1 border-t border-gray-600"></div>
-            <span className="px-4 text-gray-400 text-sm">or</span>
-            <div className="flex-1 border-t border-gray-600"></div>
-          </div>
 
-          {/* Social Login */}
-          <div className="space-y-3">
-            <button className="w-full py-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white font-medium transition-all duration-300 flex items-center justify-center">
-              <span className="mr-2">🌐</span>
-              Continue with Google
-            </button>
-            
-            {/* <button className="w-full py-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white font-medium transition-all duration-300 flex items-center justify-center">
-              <span className="mr-2">👥</span>
-              Continue with Facebook
-            </button> */}
-          </div>
 
           {/* Sign Up Link */}
           <div className="mt-8 text-center">
@@ -179,12 +161,7 @@ export default function Login({ onLogin, onSwitchToSignup }: LoginProps) {
             </p>
           </div>
 
-          {/* Demo Account */}
-          <div className="mt-4 p-3 bg-green-500/20 border border-green-500/30 rounded-lg">
-            <p className="text-green-300 text-xs text-center">
-              💡 <strong>Demo:</strong> Use email: demo@ecofresh.com, password: demo123
-            </p>
-          </div>
+
         </div>
 
         {/* Footer */}

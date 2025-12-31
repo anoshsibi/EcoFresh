@@ -9,6 +9,7 @@ The EcoFresh Air Quality Dashboard now integrates **multiple APIs** to provide c
 #### 1. OpenWeatherMap API (Primary)
 - **API Key**: `741081f2196356e85d5138db13c2f41c`
 - **Base URL**: `http://api.openweathermap.org/data/2.5`
+
 - **Geocoding URL**: `http://api.openweathermap.org/geo/1.0`
 - **Coverage**: Global
 - **Strength**: Reliable, consistent data format

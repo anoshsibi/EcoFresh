@@ -37,9 +37,20 @@ function App() {
     }
   }, [])
 
-  const handleSplashComplete = () => {
+  // Auto-hide splash screen after 3 seconds or on click
+  useEffect(() => {
+    const splashTimer = setTimeout(() => {
+      setShowSplash(false)
+    }, 3000)
+
+    return () => clearTimeout(splashTimer)
+  }, [])
+
+  const handleSkipSplash = () => {
     setShowSplash(false)
   }
+
+
 
   return (
     <div className="min-h-screen text-white overflow-hidden relative">
@@ -57,8 +68,20 @@ function App() {
                 ease: "easeInOut"
               }
             }}
-            className="fixed inset-0 z-[10000]"
+            className="fixed inset-0 z-[10000] bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center cursor-pointer"
+            onClick={handleSkipSplash}
           >
+            <div className="text-center">
+              <div className="text-6xl font-light text-white tracking-[8px] mb-4 opacity-90">
+                Eco<span className="font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Fresh</span>
+              </div>
+              <div className="text-lg text-white/60 tracking-[3px] uppercase font-normal">
+                Clean Air Intelligence
+              </div>
+              <div className="mt-8 text-sm text-white/40">
+                Click anywhere or wait to continue...
+              </div>
+            </div>
           </motion.div>
         ) : (
           <motion.div

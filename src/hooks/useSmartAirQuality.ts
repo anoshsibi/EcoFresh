@@ -124,9 +124,9 @@ export const useSmartAirQuality = () => {
     )
 
     const highPriorityCities = priorities
-      .filter(p => p.priority === 'high')
+      .filter((p: { priority: string }) => p.priority === 'high')
       .slice(0, 15)
-      .map(p => EXPANDED_CITIES.find(c => c.name === p.city))
+      .map((p: { city: string }) => EXPANDED_CITIES.find(c => c.name === p.city))
       .filter(Boolean) as typeof EXPANDED_CITIES
 
     console.log('Loading high priority cities:', highPriorityCities.map(c => c.name))
@@ -250,7 +250,7 @@ export const useSmartAirQuality = () => {
       const result = await loadCityOnDemand(city.name)
       if (result) {
         // Track user interaction
-        priorityManager.trackCountrySelection(city.name, countryName)
+        priorityManager.trackCountrySelection(countryName)
       }
 
       await new Promise(resolve => setTimeout(resolve, 300))
